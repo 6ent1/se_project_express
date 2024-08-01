@@ -1,7 +1,6 @@
 const express = require("express");
 const mongoose = require("mongoose");
-const userRouter = require("./routes/index");
-const clothingItemRouter = require("./routes/index");
+const mainRouter = require("./routes/index");
 
 mongoose.set("strictQuery", true);
 
@@ -25,8 +24,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use("/", userRouter);
-app.use("/", clothingItemRouter);
+app.use("/", mainRouter);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
