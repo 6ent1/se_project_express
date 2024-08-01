@@ -11,8 +11,7 @@ const ERROR_MESSAGES = {
   FORBIDDEN: "This is a permissions issue",
   NOT_FOUND:
     "a server response that indicates the requested page could not be found",
-  SERVER_ERROR:
-    "the server is unable to fulfill a request due to an unexpected condition or configuration issue",
+  SERVER_ERROR: "An error has occurred on the server",
 };
 
 module.exports = {
