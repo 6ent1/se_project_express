@@ -2,7 +2,6 @@ const express = require("express");
 const mongoose = require("mongoose");
 const userRouter = require("./routes/index");
 const clothingItemRouter = require("./routes/index");
-const routes = require("./routes");
 
 mongoose.set("strictQuery", true);
 
