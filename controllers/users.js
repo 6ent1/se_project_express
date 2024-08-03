@@ -4,17 +4,6 @@ const { ERROR_CODES, ERROR_MESSAGES } = require("../utils/errors");
 const { JWT_SECRET } = require("../utils/config");
 const User = require("../models/user");
 
-const getUsers = (req, res) => {
-  User.find({})
-    .then((users) => res.send(users))
-    .catch((err) => {
-      console.error(err);
-      return res
-        .status(ERROR_CODES.SERVER_ERROR)
-        .send({ message: ERROR_MESSAGES.BAD_REQUEST });
-    });
-};
-
 const updateUser = (req, res) => {
   const { name, avatar } = req.body;
 
@@ -35,8 +24,8 @@ const updateUser = (req, res) => {
       console.error(err);
       if (err.name === "ValidationError") {
         return res
-          .status(ERROR_MESSAGES.BAD_REQUEST)
-          .send({ message: err.message });
+          .status(ERROR_CODES.BAD_REQUEST)
+          .send({ message: ERROR_MESSAGES.BAD_REQUEST });
       }
       return res
         .status(ERROR_CODES.SERVER_ERROR)
@@ -47,13 +36,14 @@ const updateUser = (req, res) => {
 const createUser = (req, res) => {
   const { name, avatar, email, password } = req.body;
 
-  User.findOne({ email })
+  if (!email) {
+    return res
+      .status(ERROR_CODES.BAD_REQUEST)
+      .send({ message: ERROR_MESSAGES.BAD_REQUEST });
+  }
+
+  return User.findOne({ email })
     .then((existingUser) => {
-      if (!email || !password) {
-        return res
-          .status(ERROR_CODES.BAD_REQUEST)
-          .send({ message: ERROR_MESSAGES.BAD_REQUEST });
-      }
       if (existingUser) {
         return res
           .status(ERROR_CODES.DUPLICATE_EMAIL)
@@ -114,6 +104,11 @@ const getCurrentUser = (req, res) => {
 
 const login = (req, res) => {
   const { email, password } = req.body;
+  if (!email || !password) {
+    return res
+      .status(ERROR_CODES.BAD_REQUEST)
+      .send({ message: ERROR_MESSAGES.BAD_REQUEST });
+  }
 
   return User.findUserByCredentials(email, password)
     .then((user) => {
@@ -129,15 +124,11 @@ const login = (req, res) => {
           .status(ERROR_CODES.AUTHENTICATION_ERROR)
           .send({ message: ERROR_MESSAGES.AuthenticationError });
       }
-      if (!email || !password) {
-        return res
-          .status(ERROR_CODES.BAD_REQUEST)
-          .send({ message: ERROR_MESSAGES.BAD_REQUEST });
-      }
+
       return res
         .status(ERROR_CODES.SERVER_ERROR)
         .send({ message: ERROR_MESSAGES.SERVER_ERROR });
     });
 };
 
-module.exports = { createUser, getCurrentUser, updateUser, login, getUsers };
+module.exports = { createUser, getCurrentUser, updateUser, login };
