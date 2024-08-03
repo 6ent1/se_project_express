@@ -15,8 +15,6 @@ mongoose
   .then(() => {})
   .catch(console.error);
 
-const routes = require("./routes");
-
 app.use(express.json());
 
 app.use("/", mainRouter);
