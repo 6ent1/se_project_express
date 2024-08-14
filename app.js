@@ -2,9 +2,12 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const mainRouter = require("./routes/index");
-
+const { requestLogger, errorLogger } = require("./middlewares/logger");
+require("dotenv").config();
+const { errors } = require("celebrate");
 mongoose.set("strictQuery", true);
 
+const errorHandler = require("./middlewares/error-handler");
 const app = express();
 app.use(cors());
 const { PORT = 3001 } = process.env;
@@ -17,6 +20,13 @@ mongoose
 
 app.use(express.json());
 
+app.use(requestLogger);
 app.use("/", mainRouter);
 
-app.listen(PORT, () => {});
+app.use(errorLogger);
+app.use(errors());
+app.use(errorHandler);
+
+app.listen(PORT, () => {
+  console.log(` Server is running on port ${PORT}`);
+});

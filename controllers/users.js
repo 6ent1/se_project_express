@@ -3,8 +3,12 @@ const bcrypt = require("bcrypt");
 const { ERROR_CODES, ERROR_MESSAGES } = require("../utils/errors");
 const { JWT_SECRET } = require("../utils/config");
 const User = require("../models/user");
+const NotFoundError = require("../utils/errors/NotFoundError");
+const BadRequestError = require("../utils/errors/BadRequestError");
+const ConflictError = require("../utils/errors/ConflictError");
+const UnauthorizedError = require("../utils/errors/UnauthorizedError");
 
-const updateUser = (req, res) => {
+const updateUser = (req, res, next) => {
   const { name, avatar } = req.body;
 
   User.findByIdAndUpdate(
@@ -14,103 +18,81 @@ const updateUser = (req, res) => {
   )
     .then((user) => {
       if (!user) {
-        return res
-          .status(ERROR_CODES.NOT_FOUND)
-          .send({ message: ERROR_MESSAGES.NOT_FOUND });
+        throw new NotFoundError("User not found");
+        // return res
+        //   .status(ERROR_CODES.NOT_FOUND)
+        //   .send({ message: ERROR_MESSAGES.NOT_FOUND });
       }
       return res.status(200).send(user);
     })
     .catch((err) => {
-      console.error(err);
       if (err.name === "ValidationError") {
-        return res
-          .status(ERROR_CODES.BAD_REQUEST)
-          .send({ message: ERROR_MESSAGES.BAD_REQUEST });
+        next(new BadRequestError(err.message));
+      } else {
+        next(err);
       }
-      return res
-        .status(ERROR_CODES.SERVER_ERROR)
-        .send({ message: ERROR_MESSAGES.SERVER_ERROR });
     });
 };
 
-const createUser = (req, res) => {
+const createUser = (req, res, next) => {
   const { name, avatar, email, password } = req.body;
 
-  if (!email) {
-    return res
-      .status(ERROR_CODES.BAD_REQUEST)
-      .send({ message: ERROR_MESSAGES.BAD_REQUEST });
-  }
+  // if (!email) {
+  //   return res
+  //     .status(ERROR_CODES.BAD_REQUEST)
+  //     .send({ message: ERROR_MESSAGES.BAD_REQUEST });
+  // }
 
-  return User.findOne({ email })
+  User.findOne({ email })
     .then((existingUser) => {
       if (existingUser) {
-        return res
-          .status(ERROR_CODES.DUPLICATE_EMAIL)
-          .send({ message: ERROR_MESSAGES.ExistingUser });
+        throw new ConflictError("A user with this email already exists");
       }
 
-      return bcrypt
-        .hash(password, 10)
-        .then((hashedPassword) => {
-          if (!hashedPassword) {
-            throw new Error("Password hashing failed");
-          }
+      return bcrypt.hash(password, 10).then((hashedPassword) => {
+        if (!hashedPassword) {
+          throw new Error("Password hashing failed");
+        }
 
-          return User.create({ name, avatar, email, password: hashedPassword });
-        })
-        .then((user) =>
-          res
-            .status(200)
-            .send({ name: user.name, avatar: user.avatar, email: user.email })
-        );
+        return User.create({ name, avatar, email, password: hashedPassword });
+      });
     })
+    .then((user) =>
+      res
+        .status(200)
+        .send({ name: user.name, avatar: user.avatar, email: user.email })
+    )
     .catch((err) => {
-      console.error(err);
-      if (err.name === "ValidationError") {
-        return res
-          .status(ERROR_CODES.BAD_REQUEST)
-          .send({ message: ERROR_MESSAGES.BAD_REQUEST });
+      if (err.name === "ValidationError" || !email) {
+        next(new BadRequestError("Invalid data provided"));
+      } else if (err.code === 11000 || err.name === "ConflictError") {
+        next(new ConflictError("A user with this email already exists"));
+      } else {
+        next(err);
       }
-      if (err.code === 11000) {
-        return res
-          .status(ERROR_CODES.DUPLICATE_EMAIL)
-          .send({ message: ERROR_MESSAGES.ExistingUser });
-      }
-
-      return res
-        .status(ERROR_CODES.SERVER_ERROR)
-        .send({ message: ERROR_MESSAGES.SERVER_ERROR });
     });
 };
 
-const getCurrentUser = (req, res) => {
+const getCurrentUser = (req, res, next) => {
   User.findById(req.user._id)
     .then((user) => {
       if (!user) {
-        return res
-          .status(ERROR_CODES.NOT_FOUND)
-          .send({ message: ERROR_MESSAGES.NOT_FOUND });
+        throw new NotFoundError("User not found");
       }
-      return res.status(200).send(user);
+      res.status(200).send(user);
     })
-    .catch((err) => {
-      console.error(err);
-      return res
-        .status(ERROR_CODES.SERVER_ERROR)
-        .send({ message: ERROR_MESSAGES.ServerError });
-    });
+    .catch(next);
 };
 
-const login = (req, res) => {
+const login = (req, res, next) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    return res
-      .status(ERROR_CODES.BAD_REQUEST)
-      .send({ message: ERROR_MESSAGES.BAD_REQUEST });
-  }
+  // if (!email || !password) {
+  //   return res
+  //     .status(ERROR_CODES.BAD_REQUEST)
+  //     .send({ message: ERROR_MESSAGES.BAD_REQUEST });
+  // }
 
-  return User.findUserByCredentials(email, password)
+  User.findUserByCredentials(email, password)
     .then((user) => {
       const token = jwt.sign({ _id: user._id }, JWT_SECRET, {
         expiresIn: "7d",
@@ -118,16 +100,13 @@ const login = (req, res) => {
       res.status(200).send({ token });
     })
     .catch((err) => {
-      console.error(err);
       if (err.message === "Incorrect email or password") {
-        return res
-          .status(ERROR_CODES.AUTHENTICATION_ERROR)
-          .send({ message: ERROR_MESSAGES.AuthenticationError });
+        next(new UnauthorizedError("Incorrect email or password"));
+      } else if (!email || !password) {
+        next(new BadRequestError("Missing email or password"));
+      } else {
+        next(err);
       }
-
-      return res
-        .status(ERROR_CODES.SERVER_ERROR)
-        .send({ message: ERROR_MESSAGES.SERVER_ERROR });
     });
 };
 
