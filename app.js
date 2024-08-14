@@ -12,6 +12,12 @@ const app = express();
 app.use(cors());
 const { PORT = 3001 } = process.env;
 
+app.get("/crash-test", () => {
+  setTimeout(() => {
+    throw new Error("Server will crash now");
+  }, 0);
+});
+
 // Connecting to the database
 mongoose
   .connect("mongodb://127.0.0.1:27017/wtwr_db")
