@@ -1,6 +1,5 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const { ERROR_CODES, ERROR_MESSAGES } = require("../utils/errors");
 const { JWT_SECRET } = require("../utils/config");
 const User = require("../models/user");
 const NotFoundError = require("../utils/errors/NotFoundError");
@@ -86,13 +85,12 @@ const getCurrentUser = (req, res, next) => {
 
 const login = (req, res, next) => {
   const { email, password } = req.body;
-  // if (!email || !password) {
-  //   return res
-  //     .status(ERROR_CODES.BAD_REQUEST)
-  //     .send({ message: ERROR_MESSAGES.BAD_REQUEST });
-  // }
 
-  User.findUserByCredentials(email, password)
+  if (!email || !password) {
+    next(new BadRequestError("Missing email or password"));
+  }
+
+  return User.findUserByCredentials(email, password)
     .then((user) => {
       const token = jwt.sign({ _id: user._id }, JWT_SECRET, {
         expiresIn: "7d",
@@ -102,8 +100,6 @@ const login = (req, res, next) => {
     .catch((err) => {
       if (err.message === "Incorrect email or password") {
         next(new UnauthorizedError("Incorrect email or password"));
-      } else if (!email || !password) {
-        next(new BadRequestError("Missing email or password"));
       } else {
         next(err);
       }
